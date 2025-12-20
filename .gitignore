@@ -1,0 +1,60 @@
+# --- Dependencies ---
+*/node_modules/
+.pnp
+.pnp.js
+
+# --- Environment Variables (Security!) ---
+# Никогда не отправляй ключи API и пароли в репозиторий
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# --- IntelliJ IDEA / JetBrains ---
+# Настройки редактора, локальная история и workspace
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# --- VS Code (на всякий случай, если кто-то в команде использует его) ---
+.vscode/
+*.code-workspace
+
+# --- OS System Files ---
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- Build Outputs (Frontend) ---
+# Папки сборки React/Vite
+dist/
+build/
+out/
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# --- Testing ---
+coverage/
+
+# --- Project Specific (Bookcamp) ---
+# Игнорируем загруженные пользователями книги,
+# чтобы не засорять Git гигабайтами файлов.
+uploads/
+server/uploads/
+client/public/temp/
+
+# Исключения (если нужно хранить пустую папку uploads, но без файлов)
+!uploads/.gitkeep
+!server/uploads/.gitkeep
+
+.cursor
+
