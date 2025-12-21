@@ -8,36 +8,29 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticateToken);
 
-// IMPORTANT: Specific routes (with bookId) must come BEFORE parameterized routes (with :status)
-// This ensures DELETE /:bookId matches before GET /:status
-
 // Add book to shelf (create UserBookState)
 router.post('/:bookId', async (req, res) => {
     try {
         const { bookId } = req.params;
         const { status } = req.body;
-        
-        // Check if book exists
+
         const book = await LibraryBook.findById(bookId);
         if (!book) {
             return res.status(404).json({ message: 'Book not found' });
         }
-        
-        // Check if state already exists
+
         let state = await UserBookState.findOne({
             user: req.user._id,
             book: bookId
         });
-        
+
         if (state) {
-            // Update existing state
             if (status) state.status = status;
             if (status === 'reading' && !state.startDate) {
                 state.startDate = new Date();
             }
             await state.save();
         } else {
-            // Create new state
             state = new UserBookState({
                 user: req.user._id,
                 book: bookId,
@@ -46,7 +39,7 @@ router.post('/:bookId', async (req, res) => {
             });
             await state.save();
         }
-        
+
         await state.populate('book');
         res.status(201).json(state);
     } catch (error) {
@@ -60,17 +53,16 @@ router.put('/:bookId', async (req, res) => {
     try {
         const { bookId } = req.params;
         const { status, progressPercent, lastLocation, targetFinishDate, finishDate, rating, review } = req.body;
-        
+
         let state = await UserBookState.findOne({
             user: req.user._id,
             book: bookId
         });
-        
+
         if (!state) {
             return res.status(404).json({ message: 'Book not on shelf' });
         }
-        
-        // Update fields
+
         if (status !== undefined) {
             state.status = status;
             if (status === 'reading' && !state.startDate) {
@@ -84,8 +76,7 @@ router.put('/:bookId', async (req, res) => {
         if (lastLocation !== undefined) state.lastLocation = lastLocation;
         if (targetFinishDate !== undefined) state.targetFinishDate = targetFinishDate;
         if (finishDate !== undefined) state.finishDate = finishDate;
-        
-        // Update rating and review
+
         if (rating !== undefined) {
             if (rating < 1 || rating > 5) {
                 return res.status(400).json({ message: 'Rating must be between 1 and 5' });
@@ -95,10 +86,10 @@ router.put('/:bookId', async (req, res) => {
         if (review !== undefined) {
             state.review = review;
         }
-        
+
         await state.save();
         await state.populate('book');
-        
+
         res.json(state);
     } catch (error) {
         console.error('Update shelf error:', error);
@@ -106,20 +97,20 @@ router.put('/:bookId', async (req, res) => {
     }
 });
 
-// Delete book from shelf (remove UserBookState completely)
+// Delete book from shelf
 router.delete('/:bookId', async (req, res) => {
     try {
         const { bookId } = req.params;
-        
+
         const state = await UserBookState.findOneAndDelete({
             user: req.user._id,
             book: bookId
         });
-        
+
         if (!state) {
             return res.status(404).json({ message: 'Book not on shelf' });
         }
-        
+
         res.json({ message: 'Book removed from shelf successfully' });
     } catch (error) {
         console.error('Delete shelf error:', error);
@@ -127,32 +118,29 @@ router.delete('/:bookId', async (req, res) => {
     }
 });
 
-// Get user's books by status (must come AFTER specific routes)
+// Get user's books by status
 router.get('/:status', async (req, res) => {
     try {
         const { status } = req.params;
         const validStatuses = ['want', 'reading', 'finished', 'dropped'];
-        
+
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: 'Invalid status' });
         }
-        
+
         const query = UserBookState.find({
             user: req.user._id,
             status: status
         }).populate('book');
-        
-        // Sort reading books by last read (updatedAt descending)
+
         if (status === 'reading') {
             query.sort({ updatedAt: -1 });
         }
-        
+
         const states = await query;
-        
-        // Filter out states where book is null (deleted books)
+
         const validStates = states.filter(state => state.book !== null && state.book !== undefined);
-        
-        // Convert to JSON to ensure populate worked
+
         const responseData = validStates.map(state => ({
             _id: state._id,
             user: state.user,
@@ -172,9 +160,12 @@ router.get('/:status', async (req, res) => {
             finishDate: state.finishDate,
             targetFinishDate: state.targetFinishDate,
             notes: state.notes,
-            updatedAt: state.updatedAt
+            updatedAt: state.updatedAt,
+            // Добавили эти два поля:
+            rating: state.rating,
+            review: state.review
         }));
-        
+
         res.json(responseData);
     } catch (error) {
         console.error('Get shelves error:', error);
@@ -183,4 +174,3 @@ router.get('/:status', async (req, res) => {
 });
 
 module.exports = router;
-

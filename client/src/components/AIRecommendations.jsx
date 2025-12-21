@@ -7,124 +7,128 @@ import BookCard from './BookCard';
 import { Sparkles } from 'lucide-react';
 
 export default function AIRecommendations() {
-    const [recommendations, setRecommendations] = useState([]);
+    const [recommendationGroups, setRecommendationGroups] = useState([]);
     const [loading, setLoading] = useState(false);
     const [importing, setImporting] = useState(new Set());
     const navigate = useNavigate();
-    
+
     const handleGenerate = async () => {
         setLoading(true);
         try {
             const response = await api.get('/recommendations');
-            setRecommendations(response.data || []);
+            setRecommendationGroups(response.data || []);
         } catch (error) {
             console.error('Error fetching recommendations:', error);
-            alert('Не удалось получить рекомендации');
+            alert('Failed to fetch recommendations'); // Перевод
         } finally {
             setLoading(false);
         }
     };
-    
-    const handleImport = async (recommendation) => {
-        setImporting(prev => new Set(prev).add(recommendation.gutenbergId || recommendation.title));
-        
+
+    const handleImport = async (book) => {
+        const importKey = book.gutenbergId || book.title;
+        setImporting(prev => new Set(prev).add(importKey));
+
         try {
-            // Try to import by gutenbergId first
-            if (recommendation.gutenbergId) {
+            // 1. Try import by ID
+            if (book.gutenbergId) {
                 try {
-                    await api.post('/books/import', { gutenbergId: recommendation.gutenbergId });
-                    alert('Книга успешно импортирована!');
+                    await api.post('/books/import', { gutenbergId: book.gutenbergId });
+                    alert('Book successfully added to shelf!'); // Перевод
                     navigate('/shelves');
                     return;
-                } catch (importError) {
-                    // If import by ID fails, try searching
-                    console.warn('Import by ID failed, trying search:', importError);
+                } catch (e) {
+                    console.warn('Direct import failed, falling back to search');
                 }
             }
-            
-            // Fallback: search by title and author
-            try {
-                const searchQuery = `${recommendation.title} ${recommendation.author}`;
-                const searchResponse = await api.get(`/books/search?q=${encodeURIComponent(searchQuery)}`);
-                const results = searchResponse.data.results || [];
-                
-                if (results.length > 0) {
-                    // Import the first result
-                    await api.post('/books/import', { gutenbergId: results[0].id });
-                    alert('Книга успешно импортирована!');
-                    navigate('/shelves');
-                } else {
-                    alert('Книга не найдена в Project Gutenberg');
-                }
-            } catch (searchError) {
-                console.error('Search and import error:', searchError);
-                alert('Не удалось импортировать книгу');
+
+            // 2. Fallback: search and import first result
+            const query = `${book.title} ${book.author}`;
+            const searchRes = await api.get(`/books/search?q=${encodeURIComponent(query)}`);
+            const foundBooks = searchRes.data.results || [];
+
+            if (foundBooks.length > 0) {
+                await api.post('/books/import', { gutenbergId: foundBooks[0].id });
+                alert('Book successfully added to shelf!'); // Перевод
+                navigate('/shelves');
+            } else {
+                alert('Unfortunately, the book was not found in the library.'); // Перевод
             }
         } catch (error) {
             console.error('Import error:', error);
-            alert('Не удалось импортировать книгу');
+            alert('Error adding book.'); // Перевод
         } finally {
             setImporting(prev => {
                 const next = new Set(prev);
-                next.delete(recommendation.gutenbergId || recommendation.title);
+                next.delete(importKey);
                 return next;
             });
         }
     };
-    
+
     return (
-        <Card className="mb-8">
+        // Changed border-indigo-100 -> border-blue-100
+        // Changed to-indigo-50/50 -> to-blue-50/50
+        <Card className="mb-8 border-blue-100 bg-gradient-to-br from-white to-blue-50/50">
             <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-2">
-                        <Sparkles className="text-yellow-500" size={24} />
-                        <CardTitle>AI Советует</CardTitle>
+                        {/* Changed text-indigo-600 -> text-blue-600 */}
+                        <Sparkles className="text-blue-600" size={24} />
+                        {/* Changed text-indigo-900 -> text-blue-900 */}
+                        <CardTitle className="text-blue-900">AI Recommendations</CardTitle>
                     </div>
-                    <Button 
-                        onClick={handleGenerate} 
+                    <Button
+                        onClick={handleGenerate}
                         disabled={loading}
-                        variant="outline"
+                        // Changed bg-indigo-600 -> bg-blue-600 (и hover тоже)
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
-                        {loading ? 'Генерация...' : 'Сгенерировать подборку'}
+                        {loading ? 'Gemini is thinking...' : 'Generate Recommendations'}
                     </Button>
                 </div>
             </CardHeader>
             <CardContent>
-                {recommendations.length > 0 ? (
-                    <div className="space-y-4">
-                        <p className="text-sm text-gray-600">
-                            На основе ваших предпочтений мы подобрали следующие книги:
+                {recommendationGroups.length > 0 ? (
+                    <div className="space-y-8 animate-in fade-in duration-500">
+                        <p className="text-sm text-gray-600 italic">
+                            Based on your ratings, we selected books in three categories:
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-stretch">
-                            {recommendations.map((rec, index) => (
-                                <div key={index} className="flex flex-col h-full">
-                                    <BookCard
-                                        book={{
-                                            title: rec.title,
-                                            author: rec.author,
-                                            coverUrl: null
-                                        }}
-                                        onAction={() => handleImport(rec)}
-                                        actionLabel={
-                                            importing.has(rec.gutenbergId || rec.title) 
-                                                ? 'Импорт...' 
-                                                : 'Импорт'
-                                        }
-                                    />
-                                    <p className="text-xs text-gray-600 line-clamp-3 mt-2 h-12">
-                                        {rec.reason}
-                                    </p>
+
+                        {recommendationGroups.map((group, idx) => (
+                            <div key={idx} className="space-y-3">
+                                {/* Changed border-indigo-500 -> border-blue-500 */}
+                                <h3 className="text-lg font-bold text-gray-800 border-l-4 border-blue-500 pl-3">
+                                    {group.genre}
+                                </h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 items-stretch">
+                                    {group.books.map((book, bIdx) => (
+                                        <div key={bIdx} className="h-full">
+                                            <BookCard
+                                                book={{
+                                                    ...book,
+                                                    description: book.reason // Передаем причину как описание
+                                                }}
+                                                hideCover={true}
+                                                onAction={() => handleImport(book)}
+                                                actionLabel={
+                                                    importing.has(book.gutenbergId || book.title)
+                                                        ? 'Adding...'
+                                                        : 'Add'
+                                                }
+                                            />
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
                     </div>
                 ) : (
-                    <div className="text-center py-8 text-gray-500">
-                        <p>Нажмите "Сгенерировать подборку" для получения персональных рекомендаций</p>
+                    <div className="text-center py-10 text-gray-500">
+                        <p>Click the button to get personalized genre recommendations from Gemini AI</p>
                     </div>
                 )}
             </CardContent>
         </Card>
     );
 }
-
