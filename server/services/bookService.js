@@ -26,6 +26,17 @@ const importFromGutenberg = async (gutenbergId) => {
         // Download EPUB file
         await downloadFile(epubUrl, filePath);
         
+        // Validate that downloaded file is actually an EPUB (ZIP archive)
+        // EPUB files start with "PK" (ZIP signature: 50 4B)
+        const fileBuffer = await fs.readFile(filePath, { start: 0, end: 3 });
+        const fileSignature = fileBuffer.toString('ascii', 0, 2);
+        
+        if (fileSignature !== 'PK') {
+            // Delete invalid file
+            await fs.unlink(filePath).catch(() => {});
+            throw new Error('Downloaded file is not a valid EPUB. This book may only be available in HTML or audio format.');
+        }
+        
         // Extract metadata
         const title = bookData.title || 'Unknown Title';
         const authors = bookData.authors || [];
@@ -105,6 +116,7 @@ const checkBookAccess = async (req, res, next) => {
         }
         
         const book = await LibraryBook.findById(bookId);
+        
         if (!book) {
             return res.status(404).json({ message: 'Book not found' });
         }

@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const { authenticateToken } = require('../middleware/auth');
 const { importFromGutenberg, handleUserUpload } = require('../services/bookService');
-const { searchBooks } = require('../utils/gutendex');
+const { searchBooks, hasEpubFormat } = require('../utils/gutendex');
 const LibraryBook = require('../models/LibraryBook');
 const UserBookState = require('../models/UserBookState');
 
@@ -33,6 +33,19 @@ router.get('/search', async (req, res) => {
         }
         
         const results = await searchBooks(query);
+        
+        // Filter results to only show books with media_type "Text" and EPUB format available
+        if (results.results && Array.isArray(results.results)) {
+            results.results = results.results.filter(book => {
+                // Check media_type first
+                const isText = book.media_type === 'Text';
+                const hasEpub = hasEpubFormat(book);
+                return isText && hasEpub;
+            });
+            // Update count
+            results.count = results.results.length;
+        }
+        
         res.json(results);
     } catch (error) {
         console.error('Search error:', error);

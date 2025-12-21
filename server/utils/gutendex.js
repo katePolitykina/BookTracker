@@ -28,20 +28,29 @@ const getBookDetails = async (gutenbergId) => {
     }
 };
 
+// Check if book has EPUB format available
+const hasEpubFormat = (bookData) => {
+    if (!bookData.formats) {
+        return false;
+    }
+    
+    // Check for actual EPUB formats
+    // Note: 'text/plain; charset=utf-8' might be HTML, so we're more strict
+    return !!(bookData.formats['application/epub+zip']);
+};
+
 // Get EPUB download URL from book data
 const getEpubUrl = (bookData) => {
     if (!bookData.formats) {
         throw new Error('No formats available for this book');
     }
     
-    // Prefer text/plain; charset=utf-8 (EPUB format)
-    const epubUrl = bookData.formats['text/plain; charset=utf-8'] || 
-                    bookData.formats['application/epub+zip'] ||
-                    bookData.formats['text/html'] ||
-                    bookData.formats['text/plain'];
+    // Only accept actual EPUB format (application/epub+zip)
+    // Do not use text/plain; charset=utf-8 as it might be HTML
+    const epubUrl = bookData.formats['application/epub+zip'];
     
     if (!epubUrl) {
-        throw new Error('No EPUB format available for this book');
+        throw new Error('EPUB format is not available for this book. This book may only be available in HTML or audio format.');
     }
     
     return epubUrl;
@@ -50,6 +59,7 @@ const getEpubUrl = (bookData) => {
 module.exports = {
     searchBooks,
     getBookDetails,
-    getEpubUrl
+    getEpubUrl,
+    hasEpubFormat
 };
 

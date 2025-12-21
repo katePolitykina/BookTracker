@@ -13,7 +13,11 @@ export default function Dashboard() {
     const [currentRead, setCurrentRead] = useState(null);
     const [trackerData, setTrackerData] = useState(null);
     const [sessions, setSessions] = useState([]);
-    const [stats, setStats] = useState({ totalBooks: 0, totalMinutes: 0, streak: 0 });
+    const [stats, setStats] = useState({ 
+        totalBooks: 0, 
+        totalMinutes: 0, 
+        streak: 0 
+    });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -39,26 +43,32 @@ export default function Dashboard() {
                 }
             }
 
-            // Get reading sessions for heatmap (last 365 days)
+            // Get reading sessions for heatmap and stats (last 365 days)
+            let allSessions = [];
             try {
                 const sessionsResponse = await api.get('/read/sessions');
-                setSessions(sessionsResponse.data || []);
+                allSessions = sessionsResponse.data || [];
+                setSessions(allSessions);
             } catch (error) {
                 console.error('Error fetching sessions:', error);
                 setSessions([]);
             }
 
-            // Get stats
-            const wantResponse = await api.get('/shelves/want').catch(() => ({ data: [] }));
+            // Get finished books count
             const finishedResponse = await api.get('/shelves/finished').catch(() => ({ data: [] }));
+            const totalBooks = finishedResponse.data?.length || 0;
             
-            const allSessions = sessions || [];
-            const totalMinutes = allSessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0) / 60;
+            // Calculate total reading time from all sessions
+            const totalSeconds = allSessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0);
+            const totalMinutes = Math.round(totalSeconds / 60);
+            
+            // Calculate streak
+            const streak = calculateStreak(allSessions);
             
             setStats({
-                totalBooks: finishedResponse.data?.length || 0,
-                totalMinutes: Math.round(totalMinutes),
-                streak: calculateStreak(allSessions)
+                totalBooks,
+                totalMinutes,
+                streak
             });
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -70,22 +80,40 @@ export default function Dashboard() {
     const calculateStreak = (sessions) => {
         if (!sessions || sessions.length === 0) return 0;
         
-        const dates = new Set(sessions.map(s => new Date(s.date).toDateString()));
-        const sortedDates = Array.from(dates).sort((a, b) => new Date(b) - new Date(a));
+        // Get unique dates with reading activity
+        const dates = new Set(
+            sessions
+                .filter(s => s.date) // Filter out sessions without dates
+                .map(s => {
+                    const date = new Date(s.date);
+                    date.setHours(0, 0, 0, 0);
+                    return date.getTime(); // Use timestamp for accurate comparison
+                })
+        );
         
-        let streak = 0;
+        if (dates.size === 0) return 0;
+        
+        // Calculate streak from today backwards
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const todayTimestamp = today.getTime();
         
-        for (let i = 0; i < sortedDates.length; i++) {
-            const checkDate = new Date(today);
-            checkDate.setDate(checkDate.getDate() - i);
-            
-            if (dates.has(checkDate.toDateString())) {
-                streak++;
-            } else {
-                break;
-            }
+        let streak = 0;
+        let checkDate = new Date(today);
+        
+        // Check if today has reading activity
+        if (dates.has(todayTimestamp)) {
+            streak = 1;
+            checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+            // If no reading today, start from yesterday
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+        
+        // Count consecutive days backwards
+        while (dates.has(checkDate.getTime())) {
+            streak++;
+            checkDate.setDate(checkDate.getDate() - 1);
         }
         
         return streak;
@@ -94,6 +122,40 @@ export default function Dashboard() {
     const handleContinueReading = () => {
         if (currentRead) {
             navigate(`/read/${currentRead.book._id}`);
+        }
+    };
+
+    const handleDeleteBook = async () => {
+        if (!currentRead) return;
+        
+        // If book is already in dropped, delete it completely
+        if (currentRead.status === 'dropped') {
+            if (!window.confirm(`Вы уверены, что хотите полностью удалить книгу "${currentRead.book.title}"? Книга будет удалена из всех полок.`)) {
+                return;
+            }
+
+            try {
+                await api.delete(`/shelves/${currentRead.book._id}`);
+                // Refresh dashboard data
+                fetchDashboardData();
+            } catch (error) {
+                console.error('Error deleting book:', error);
+                alert('Не удалось удалить книгу');
+            }
+        } else {
+            // Otherwise, move to dropped
+            if (!window.confirm(`Вы уверены, что хотите удалить книгу "${currentRead.book.title}"? Книга будет перемещена в "Dropped".`)) {
+                return;
+            }
+
+            try {
+                await api.put(`/shelves/${currentRead.book._id}`, { status: 'dropped' });
+                // Refresh dashboard data
+                fetchDashboardData();
+            } catch (error) {
+                console.error('Error deleting book:', error);
+                alert('Не удалось удалить книгу');
+            }
         }
     };
 
@@ -112,7 +174,16 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Current Read Card */}
                 {currentRead ? (
-                    <Card className="mb-8">
+                    <Card className="mb-8 relative">
+                        <button
+                            onClick={handleDeleteBook}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors"
+                            title="Удалить книгу"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
                         <CardHeader>
                             <CardTitle>Currently Reading</CardTitle>
                             <CardDescription>{currentRead.book.title} by {currentRead.book.author}</CardDescription>
@@ -122,9 +193,9 @@ export default function Dashboard() {
                                 <div>
                                     <div className="flex justify-between text-sm mb-2">
                                         <span>Progress</span>
-                                        <span>{currentRead.progressPercent.toFixed(1)}%</span>
+                                        <span>{(currentRead.progressPercent || 0).toFixed(1)}%</span>
                                     </div>
-                                    <Progress value={currentRead.progressPercent} />
+                                    <Progress value={currentRead.progressPercent || 0} />
                                 </div>
                                 
                                 {trackerData?.daysStatus && (
@@ -179,7 +250,7 @@ export default function Dashboard() {
                         </CardHeader>
                         <CardContent>
                             <p className="text-3xl font-bold">{stats.totalMinutes}</p>
-                            <p className="text-sm text-gray-500">minutes</p>
+                            <p className="text-sm text-gray-500">{stats.totalMinutes === 1 ? 'minute' : 'minutes'}</p>
                         </CardContent>
                     </Card>
                     

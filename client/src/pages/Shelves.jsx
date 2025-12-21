@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import BookCard from '../components/BookCard';
@@ -10,14 +10,30 @@ export default function Shelves() {
     const [books, setBooks] = useState({ want: [], reading: [], finished: [], dropped: [] });
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => {
         fetchBooks();
     }, [activeTab]);
     
-    // Also fetch when component mounts (in case we navigated from import/upload)
+    // Also fetch when component mounts or when location changes (e.g., when returning from reader)
     useEffect(() => {
         fetchBooks();
+    }, [location.pathname]);
+    
+    // Refresh books when page becomes visible (e.g., when returning from reader)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                fetchBooks();
+            }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     const fetchBooks = async () => {
@@ -28,9 +44,15 @@ export default function Shelves() {
             );
             const results = await Promise.all(promises);
             
+            // Sort reading books by updatedAt (most recently read first)
+            const readingBooks = (results[1].data || []).sort((a, b) => {
+                if (!a.updatedAt || !b.updatedAt) return 0;
+                return new Date(b.updatedAt) - new Date(a.updatedAt);
+            });
+            
             setBooks({
                 want: results[0].data || [],
-                reading: results[1].data || [],
+                reading: readingBooks,
                 finished: results[2].data || [],
                 dropped: results[3].data || []
             });
@@ -52,6 +74,36 @@ export default function Shelves() {
         } catch (error) {
             console.error('Error updating status:', error);
             alert('Failed to update book status');
+        }
+    };
+
+    const handleDeleteBook = async (bookState) => {
+        // If book is already in dropped, delete it completely
+        if (bookState.status === 'dropped') {
+            if (!window.confirm(`Вы уверены, что хотите полностью удалить книгу "${bookState.book.title}"? Книга будет удалена из всех полок.`)) {
+                return;
+            }
+
+            try {
+                await api.delete(`/shelves/${bookState.book._id}`);
+                fetchBooks();
+            } catch (error) {
+                console.error('Error deleting book:', error);
+                alert('Не удалось удалить книгу');
+            }
+        } else {
+            // Otherwise, move to dropped
+            if (!window.confirm(`Вы уверены, что хотите удалить книгу "${bookState.book.title}"? Книга будет перемещена в "Dropped".`)) {
+                return;
+            }
+
+            try {
+                await api.put(`/shelves/${bookState.book._id}`, { status: 'dropped' });
+                fetchBooks();
+            } catch (error) {
+                console.error('Error deleting book:', error);
+                alert('Не удалось удалить книгу');
+            }
         }
     };
 
@@ -88,26 +140,39 @@ export default function Shelves() {
                                         }
                                         
                                         return (
-                                        <div key={bookState._id} className="relative">
+                                        <div key={bookState._id} className="relative group">
                                             <BookCard
                                                 book={bookState.book}
                                                 onAction={() => handleBookClick(bookState)}
                                                 actionLabel="Read"
                                             />
-                                            {bookState.progressPercent > 0 && (
+                                            {(bookState.progressPercent || 0) > 0 && (
                                                 <div className="mt-2">
                                                     <div className="flex justify-between text-xs mb-1">
                                                         <span>Progress</span>
-                                                        <span>{bookState.progressPercent.toFixed(0)}%</span>
+                                                        <span>{(bookState.progressPercent || 0).toFixed(0)}%</span>
                                                     </div>
                                                     <div className="w-full bg-gray-200 rounded-full h-1.5">
                                                         <div
                                                             className="bg-blue-600 h-1.5 rounded-full"
-                                                            style={{ width: `${bookState.progressPercent}%` }}
+                                                            style={{ width: `${bookState.progressPercent || 0}%` }}
                                                         />
                                                     </div>
                                                 </div>
                                             )}
+                                            {/* Delete button - show on hover */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteBook(bookState);
+                                                }}
+                                                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title="Удалить книгу"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
                                         </div>
                                         );
                                     })}
@@ -123,4 +188,5 @@ export default function Shelves() {
         </div>
     );
 }
+
 

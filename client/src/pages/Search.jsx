@@ -39,7 +39,8 @@ export default function Search() {
             navigate('/shelves');
         } catch (error) {
             console.error('Import error:', error);
-            alert(error.response?.data?.message || 'Failed to import book');
+            const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to import book';
+            alert(errorMessage);
         } finally {
             setImporting(prev => {
                 const next = new Set(prev);
