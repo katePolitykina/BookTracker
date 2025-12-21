@@ -17,6 +17,7 @@ export default function Layout({ children }) {
                             <Link to="/search" className="text-sm text-gray-600 hover:text-gray-900">Search</Link>
                             <Link to="/upload" className="text-sm text-gray-600 hover:text-gray-900">Upload</Link>
                             <Link to="/shelves" className="text-sm text-gray-600 hover:text-gray-900">Shelves</Link>
+                            <Link to="/reports" className="text-sm text-gray-600 hover:text-gray-900">Reports</Link>
                             <span className="text-sm text-gray-600">{user?.email}</span>
                             <Button variant="outline" onClick={logout}>
                                 Logout

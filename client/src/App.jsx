@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Search from './pages/Search';
 import Upload from './pages/Upload';
 import Shelves from './pages/Shelves';
+import Reports from './pages/Reports';
 import EpubReader from './components/EpubReader';
 
 // Protected Route Component
@@ -88,6 +89,13 @@ function AppRoutes() {
                 <ProtectedRoute>
                     <Layout>
                         <Shelves />
+                    </Layout>
+                </ProtectedRoute>
+            } />
+            <Route path="/reports" element={
+                <ProtectedRoute>
+                    <Layout>
+                        <Reports />
                     </Layout>
                 </ProtectedRoute>
             } />

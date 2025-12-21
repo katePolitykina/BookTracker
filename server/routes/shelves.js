@@ -59,7 +59,7 @@ router.post('/:bookId', async (req, res) => {
 router.put('/:bookId', async (req, res) => {
     try {
         const { bookId } = req.params;
-        const { status, progressPercent, lastLocation, targetFinishDate, finishDate } = req.body;
+        const { status, progressPercent, lastLocation, targetFinishDate, finishDate, rating, review } = req.body;
         
         let state = await UserBookState.findOne({
             user: req.user._id,
@@ -84,6 +84,17 @@ router.put('/:bookId', async (req, res) => {
         if (lastLocation !== undefined) state.lastLocation = lastLocation;
         if (targetFinishDate !== undefined) state.targetFinishDate = targetFinishDate;
         if (finishDate !== undefined) state.finishDate = finishDate;
+        
+        // Update rating and review
+        if (rating !== undefined) {
+            if (rating < 1 || rating > 5) {
+                return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+            }
+            state.rating = rating;
+        }
+        if (review !== undefined) {
+            state.review = review;
+        }
         
         await state.save();
         await state.populate('book');

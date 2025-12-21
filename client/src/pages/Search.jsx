@@ -70,7 +70,7 @@ export default function Search() {
                 </form>
 
                 {results.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 items-stretch">
                         {results.map((book) => (
                             <BookCard
                                 key={book.id}

@@ -134,7 +134,7 @@ router.post('/:bookId/session', checkBookAccess, async (req, res) => {
                     state.progressPercent = progressPercent;
                     
                     // Automatically mark as finished if progress >= 99.8%
-                    if (progressPercent >= 99.8 && state.status !== 'finished') {
+                    if (progressPercent >= 99.2 && state.status !== 'finished') {
                         state.status = 'finished';
                         if (!state.finishDate) {
                             state.finishDate = new Date();

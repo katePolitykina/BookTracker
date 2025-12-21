@@ -4,11 +4,14 @@ import api from '../lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import BookCard from '../components/BookCard';
 import { Button } from '../components/ui/button';
+import BookReviewModal from '../components/BookReviewModal';
+import AIRecommendations from '../components/AIRecommendations';
 
 export default function Shelves() {
     const [activeTab, setActiveTab] = useState('reading');
     const [books, setBooks] = useState({ want: [], reading: [], finished: [], dropped: [] });
     const [loading, setLoading] = useState(true);
+    const [reviewModal, setReviewModal] = useState({ isOpen: false, book: null });
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -70,10 +73,32 @@ export default function Shelves() {
     const handleStatusChange = async (bookState, newStatus) => {
         try {
             await api.put(`/shelves/${bookState.book._id}`, { status: newStatus });
+            
+            // If moving to finished and no rating exists, open review modal
+            if (newStatus === 'finished' && !bookState.rating) {
+                setReviewModal({ isOpen: true, book: bookState });
+            }
+            
             fetchBooks();
         } catch (error) {
             console.error('Error updating status:', error);
             alert('Failed to update book status');
+        }
+    };
+    
+    const handleReviewSave = async (reviewData) => {
+        if (!reviewModal.book) return;
+        
+        try {
+            await api.put(`/shelves/${reviewModal.book.book._id}`, {
+                rating: reviewData.rating,
+                review: reviewData.review
+            });
+            setReviewModal({ isOpen: false, book: null });
+            fetchBooks();
+        } catch (error) {
+            console.error('Error saving review:', error);
+            alert('Не удалось сохранить отзыв');
         }
     };
 
@@ -132,34 +157,38 @@ export default function Shelves() {
                     
                     {['want', 'reading', 'finished', 'dropped'].map(status => (
                         <TabsContent key={status} value={status}>
+                            {status === 'want' && books[status].length === 0 && (
+                                <div className="mb-6">
+                                    <AIRecommendations />
+                                </div>
+                            )}
                             {books[status].length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4 items-stretch">
                                     {books[status].map((bookState) => {
                                         if (!bookState.book) {
                                             return null; // Skip rendering if book is null
                                         }
                                         
                                         return (
-                                        <div key={bookState._id} className="relative group">
+                                        <div key={bookState._id} className="relative group flex flex-col">
                                             <BookCard
                                                 book={bookState.book}
+                                                bookState={bookState}
                                                 onAction={() => handleBookClick(bookState)}
                                                 actionLabel="Read"
                                             />
-                                            {(bookState.progressPercent || 0) > 0 && (
-                                                <div className="mt-2">
-                                                    <div className="flex justify-between text-xs mb-1">
-                                                        <span>Progress</span>
-                                                        <span>{(bookState.progressPercent || 0).toFixed(0)}%</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                                        <div
-                                                            className="bg-blue-600 h-1.5 rounded-full"
-                                                            style={{ width: `${bookState.progressPercent || 0}%` }}
-                                                        />
-                                                    </div>
+                                            <div className="mt-2">
+                                                <div className="flex justify-between text-xs mb-1">
+                                                    <span>Progress</span>
+                                                    <span>{(bookState.progressPercent || 0).toFixed(0)}%</span>
                                                 </div>
-                                            )}
+                                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                                    <div
+                                                        className="bg-blue-600 h-1.5 rounded-full"
+                                                        style={{ width: `${bookState.progressPercent || 0}%` }}
+                                                    />
+                                                </div>
+                                            </div>
                                             {/* Delete button - show on hover */}
                                             <button
                                                 onClick={(e) => {
@@ -185,6 +214,14 @@ export default function Shelves() {
                         </TabsContent>
                     ))}
                 </Tabs>
+                
+                {/* Review Modal */}
+                <BookReviewModal
+                    book={reviewModal.book}
+                    isOpen={reviewModal.isOpen}
+                    onClose={() => setReviewModal({ isOpen: false, book: null })}
+                    onSave={handleReviewSave}
+                />
         </div>
     );
 }

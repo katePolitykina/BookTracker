@@ -76,7 +76,8 @@ router.get('/me', authenticateToken, async (req, res) => {
             id: user._id,
             email: user.email,
             avatar: user.avatar,
-            dailyGoalMinutes: user.dailyGoalMinutes
+            dailyGoalMinutes: user.dailyGoalMinutes,
+            createdAt: user.createdAt
         });
     } catch (error) {
         console.error('Get user error:', error);

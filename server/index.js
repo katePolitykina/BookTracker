@@ -11,6 +11,9 @@ const bookRoutes = require('./routes/books');
 const shelfRoutes = require('./routes/shelves');
 const trackerRoutes = require('./routes/tracker');
 const readRoutes = require('./routes/read');
+const analyticsRoutes = require('./routes/analytics');
+const userRoutes = require('./routes/user');
+const recommendationsRoutes = require('./routes/recommendations');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,6 +38,9 @@ app.use('/api/books', bookRoutes);
 app.use('/api/shelves', shelfRoutes);
 app.use('/api/tracker', trackerRoutes);
 app.use('/api/read', readRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/recommendations', recommendationsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
