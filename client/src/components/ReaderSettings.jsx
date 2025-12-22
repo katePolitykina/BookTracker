@@ -67,7 +67,7 @@ export default function ReaderSettings({
         onSettingsChange(newSettings);
     };
 
-    const handleGoToChapter = () => {
+    const handleGoToChapter = async () => {
         if (!selectedChapter) {
             alert('Выберите главу');
             return;
@@ -75,8 +75,9 @@ export default function ReaderSettings({
 
         const chapter = chapters.find(ch => ch.href === selectedChapter);
         if (chapter && onGoToChapter) {
-            onGoToChapter(chapter.href);
+            await onGoToChapter(chapter.href);
             setSelectedChapter('');
+            onClose(); // Закрываем модальное окно после перехода
         } else {
             alert('Глава не найдена');
         }

@@ -826,14 +826,14 @@ export default function EpubReader() {
                 <Button 
                     variant="outline" 
                     onClick={handlePrev} 
-                    className="bg-gray-700 text-white border-gray-600 hover:bg-gray-600"
+                    className="bg-gray-700 text-white border-gray-600 hover:bg-gray-600 w-32"
                 >
                     ← Previous
                 </Button>
                 <Button 
                     variant="outline" 
                     onClick={handleNext} 
-                    className="bg-gray-700 text-white border-gray-600 hover:bg-gray-600"
+                    className="bg-gray-700 text-white border-gray-600 hover:bg-gray-600 w-32"
                 >
                     Next →
                 </Button>
