@@ -73,6 +73,18 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('user');
         setUser(null);
     };
+    const deleteAccount = async () => {
+        try {
+            await api.delete('/user/me');
+            logout(); // Очищаем токен и состояние после удаления
+            return { success: true };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Failed to delete account'
+            };
+        }
+    };
 
     const value = {
         user,
@@ -80,6 +92,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        deleteAccount,
         isAuthenticated: !!user
     };
 

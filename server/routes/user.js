@@ -1,5 +1,10 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
+const ReadingSession = require('../models/ReadingSession');
+const UserBookState = require('../models/UserBookState');
+const LibraryBook = require('../models/LibraryBook');
+const fs = require('fs').promises;
+const path = require('path'); // <--- Вот этот модуль был пропущен
 const User = require('../models/User');
 
 const router = express.Router();
@@ -67,6 +72,51 @@ router.get('/goals', async (req, res) => {
     } catch (error) {
         console.error('Error fetching goals:', error);
         res.status(500).json({ message: 'Failed to fetch goals', error: error.message });
+    }
+});
+
+router.delete('/me', async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        // 1. Удаляем сессии чтения
+        await ReadingSession.deleteMany({ user: userId });
+
+        // 2. Удаляем состояния книг (прогресс, полки)
+        await UserBookState.deleteMany({ user: userId });
+
+        // 3. Удаляем загруженные пользователем книги (файлы и записи в БД)
+        const userUploads = await LibraryBook.find({ owner: userId, source: 'upload' });
+
+        for (const book of userUploads) {
+            // Пытаемся удалить файл
+            if (book.filePath) {
+                const fullPath = path.join(process.cwd(), book.filePath);
+                try {
+                    await fs.unlink(fullPath);
+                } catch (err) {
+                    console.error(`Failed to delete file for book ${book._id}:`, err.message);
+                }
+            }
+            // Удаляем запись из БД
+            await LibraryBook.findByIdAndDelete(book._id);
+        }
+
+        // Попытка удалить папку пользователя (если она пуста)
+        const userDir = path.join(process.cwd(), 'uploads', 'user', userId.toString());
+        try {
+            await fs.rmdir(userDir);
+        } catch (err) {
+            // Игнорируем ошибку, если папка не существует или не пуста
+        }
+
+        // 4. Удаляем самого пользователя
+        await User.findByIdAndDelete(userId);
+
+        res.json({ message: 'Account and all data deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting user account:', error);
+        res.status(500).json({ message: 'Failed to delete account', error: error.message });
     }
 });
 
